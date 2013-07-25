@@ -52,7 +52,7 @@ func (cs *changeSet) splitByFile(splitBy string, file string) *changeList {
 		} else {
 			cl := &changeList{
 				base:        base,
-				description: fmt.Sprintf("===== Contents of %s =====\n", splitByPath),
+				description: banner("Contents of %s", splitByPath),
 			}
 			bio := bufio.NewReader(f)
 			for {

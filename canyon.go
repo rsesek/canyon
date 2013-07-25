@@ -29,6 +29,11 @@ var (
 func main() {
 	flag.Parse()
 
+	if err := validateDescription(); err != nil {
+		fmt.Println("Please provide a valid -message for your branches. Error:", err)
+		os.Exit(1)
+	}
+
 	branch := strings.TrimSpace(gitOrDie("symbolic-ref", "--short", "HEAD"))
 
 	fmt.Printf("Split changelist on branch %q into sub-changelists? [y/N] ", branch)
@@ -69,14 +74,7 @@ func main() {
 			continue
 		}
 
-		desc := fmt.Sprintf("Update include paths in %s for base/process changes.\n\nBUG=242290", cl.base)
-		desc += "\n\n===== Affected paths: =====\n"
-		for _, file := range cl.paths {
-			desc += fmt.Sprintf("%s\n", file)
-		}
-		desc += "\n" + cl.description
-
-		_, err = git("commit", "-a", "-m", desc)
+		_, err = git("commit", "-a", "-m", formatDescription(cl))
 		if err != nil {
 			log.Print("Failed to create subchangelist")
 			gitOrDie("reset", "--hard", *upstreamBranch)
