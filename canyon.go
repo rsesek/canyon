@@ -64,43 +64,10 @@ func main() {
 	files := strings.Split(gitOrDie("diff", "--name-only", *upstreamBranch), "\n")
 
 	log.Print("Splitting changed files into groups for changelists")
-	cs := newChangeSet(branch)
-	for _, file := range files {
-		if file == "" {
-			continue
-		}
-		if *splitByType == "dir" {
-			cs.splitByDir(file)
-		} else if *splitByType == "file" {
-			cs.splitByFile(*splitByFile, file)
-		}
-	}
+	cs := prepareChangeSet(branch, files)
 
 	log.Print("Creating branches for splits")
-	for _, cl := range cs.splits {
-		splitBranch := cl.branchName(branch)
-		log.Printf("Preparing branch %s", splitBranch)
-
-		_, err := git("checkout", "-b", splitBranch, *upstreamBranch)
-		if err != nil {
-			log.Printf("Failed to create new branch %q: %v", splitBranch, err)
-			continue
-		}
-
-		_, err = git("checkout", branch, cl.base)
-		if err != nil {
-			log.Print("Failed to check out subdirectory from root branch")
-			gitOrDie("reset", "--hard", *upstreamBranch)
-			continue
-		}
-
-		_, err = git("commit", "-a", "-m", formatDescription(cl))
-		if err != nil {
-			log.Print("Failed to create subchangelist")
-			gitOrDie("reset", "--hard", *upstreamBranch)
-			continue
-		}
-	}
+	createBranches(cs)
 
 	git("checkout", branch)
 }
@@ -124,4 +91,48 @@ func gitOrDie(args ...string) string {
 		panic(e.Error())
 	}
 	return r
+}
+
+// prepareChangeSet creates a new changeset on |branch| and splits the |files|.
+func prepareChangeSet(branch string, files []string) *changeSet {
+	cs := newChangeSet(branch)
+	for _, file := range files {
+		if file == "" {
+			continue
+		}
+		if *splitByType == "dir" {
+			cs.splitByDir(file)
+		} else if *splitByType == "file" {
+			cs.splitByFile(*splitByFile, file)
+		}
+	}
+	return cs
+}
+
+// createBranches creates branches as specified by the changeSet.
+func createBranches(cs *changeSet) {
+	for _, cl := range cs.splits {
+		splitBranch := cl.branchName(cs.branch)
+		log.Printf("Preparing branch %s", splitBranch)
+
+		_, err := git("checkout", "-b", splitBranch, *upstreamBranch)
+		if err != nil {
+			log.Printf("Failed to create new branch %q: %v", splitBranch, err)
+			continue
+		}
+
+		_, err = git("checkout", cs.branch, cl.base)
+		if err != nil {
+			log.Print("Failed to check out subdirectory from root branch")
+			gitOrDie("reset", "--hard", *upstreamBranch)
+			continue
+		}
+
+		_, err = git("commit", "-a", "-m", formatDescription(cl))
+		if err != nil {
+			log.Print("Failed to create subchangelist")
+			gitOrDie("reset", "--hard", *upstreamBranch)
+			continue
+		}
+	}
 }
