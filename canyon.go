@@ -5,12 +5,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"strings"
 )
 
@@ -22,31 +20,6 @@ description.
 */
 
 const kMaxDepth = 1
-
-// A changeList represents one of the split changelists.
-type changeList struct {
-	// The base path for this changelist.
-	base string
-
-	// List of modified paths.
-	paths []string
-
-	// Extra data for the CL description.
-	description string
-}
-
-func (cl *changeList) addPath(p string) {
-	cl.paths = append(cl.paths, p)
-}
-
-func (cl *changeList) branchName(root string) string {
-	normalize := strings.Replace(cl.base, "/", "-", -1)
-	return fmt.Sprintf("canyon/%s/%s", root, normalize)
-}
-
-func (cl *changeList) String() string {
-	return fmt.Sprintf("<changeList %p : %d files>", cl, len(cl.paths))
-}
 
 func main() {
 	branch := strings.TrimSpace(gitOrDie("symbolic-ref", "--short", "HEAD"))
@@ -63,16 +36,16 @@ func main() {
 	files := strings.Split(gitOrDie("diff", "--name-only", "origin/master"), "\n")
 
 	log.Print("Splitting changed files into groups for changelists")
-	splits := make(map[string]*changeList)
+	cs := newChangeSet(branch)
 	for _, file := range files {
 		if file == "" {
 			continue
 		}
-		splitForFile(splits, file)
+		cs.splitByFile("OWNERS", file)
 	}
 
 	log.Print("Creating branches for splits")
-	for _, cl := range splits {
+	for _, cl := range cs.splits {
 		splitBranch := cl.branchName(branch)
 		log.Printf("Preparing branch %s", splitBranch)
 
@@ -126,40 +99,4 @@ func gitOrDie(args ...string) string {
 		panic(e.Error())
 	}
 	return r
-}
-
-// splitForFile returns a changeList object for the given file path.
-func splitForFile(splits map[string]*changeList, file string) *changeList {
-	base := path.Dir(file)
-	for {
-		if cl, ok := splits[base]; ok {
-			cl.addPath(file)
-			return cl
-		}
-
-		owners := path.Join(base, "OWNERS")
-		f, err := os.Open(owners)
-		if err != nil || strings.Count(base, string(os.PathSeparator)) > kMaxDepth {
-			base = path.Dir(base)
-			continue
-		} else {
-			cl := &changeList{
-				base: base,
-				description: fmt.Sprintf("===== Contents of %s =====\n", owners),
-			}
-			bio := bufio.NewReader(f)
-			for {
-				line, err := bio.ReadString('\n')
-				if err != nil {
-					break
-				}
-				cl.description += line
-			}
-			f.Close()
-
-			cl.addPath(file)
-			splits[base] = cl
-			return cl
-		}
-	}
 }
