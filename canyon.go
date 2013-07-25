@@ -16,12 +16,11 @@ import (
 /*
 canyon is a tool for making big splits. This assumes that you have a very large
 changelist prepared in a single branch. canyon will then split up the large
-change into multiple branches, by OWNERS file, and then will prepare a changelist
-description.
+change into multiple branches and then will prepare a changelist description.
 */
 
 var (
-	maxDepth = flag.Int("depth", 0, "The maximum subdirectory depth for which split branches should be created.")
+	maxDepth = flag.Int("depth", 0, "The maximum subdirectory depth for which split branches should be created. 0 is no depth limit.")
 
 	upstreamBranch = flag.String("upstream", "origin/master", "The upstream branch against which diffs are taken and new branches created.")
 
@@ -45,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *splitByType == "file" && *splitByFile == "" {
-		fmt.Println("Whe using -split-by=file, a -split-by-file is needed.")
+		fmt.Println("When using -split-by=file, a -split-by-file is needed.")
 		flag.Usage()
 		os.Exit(1)
 	}
