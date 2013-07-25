@@ -24,6 +24,10 @@ var (
 	maxDepth = flag.Int("depth", 0, "The maximum subdirectory depth for which split branches should be created.")
 
 	upstreamBranch = flag.String("upstream", "origin/master", "The upstream branch against which diffs are taken and new branches created.")
+
+	splitByType = flag.String("split-by", "[dir|file]", "The method by which the branch is split.")
+
+	splitByFile = flag.String("split-by-file", "", "If using -split-by=file, this the common file name by which split directories are found.")
 )
 
 func main() {
@@ -31,6 +35,18 @@ func main() {
 
 	if err := validateDescription(); err != nil {
 		fmt.Println("Please provide a valid -message for your branches. Error:", err)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if *splitByType != "dir" || *splitByType != "file" {
+		fmt.Println("Invalid -split-by type:", *splitByType)
+		flag.Usage()
+		os.Exit(1)
+	}
+	if *splitByType == "file" && *splitByFile == "" {
+		fmt.Println("Whe using -split-by=file, a -split-by-file is needed.")
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -53,7 +69,11 @@ func main() {
 		if file == "" {
 			continue
 		}
-		cs.splitByFile("OWNERS", file)
+		if *splitByType == "dir" {
+			cs.splitByDir(file)
+		} else if *splitByType == "file" {
+			cs.splitByFile(*splitByFile, file)
+		}
 	}
 
 	log.Print("Creating branches for splits")
