@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const kPathSep = string(os.PathSeparator)
+
 // A changeSet is the result of splitting one branch into several.
 type changeSet struct {
 	// The original branch name.
@@ -41,7 +43,7 @@ func (cs *changeSet) splitByFile(splitBy string, file string) *changeList {
 
 		splitByPath := path.Join(base, splitBy)
 		f, err := os.Open(splitByPath)
-		if err != nil || strings.Count(base, string(os.PathSeparator)) > kMaxDepth {
+		if err != nil || strings.Count(base, kPathSep) > kMaxDepth {
 			base = path.Dir(base)
 			continue
 		} else {
@@ -64,6 +66,30 @@ func (cs *changeSet) splitByFile(splitBy string, file string) *changeList {
 			return cl
 		}
 	}
+}
+
+// splitByDir splits |file| in the changeSet into a changeList by looking at
+// common parent directories.
+func (cs *changeSet) splitByDir(file string) *changeList {
+	parts := strings.Split(path.Dir(file), kPathSep)
+	if kMaxDepth > 0 {
+		depth := len(parts)
+		if kMaxDepth < len(parts) {
+			depth = kMaxDepth
+		}
+		parts = parts[:depth]
+	}
+
+	splitPath := strings.Join(parts, kPathSep)
+	if cl, ok := cs.splits[splitPath]; ok {
+		cl.addPath(file)
+		return cl
+	}
+
+	cl := &changeList{base: splitPath}
+	cl.addPath(file)
+	cs.splits[splitPath] = cl
+	return cl
 }
 
 // A changeList represents one of the split branches.
