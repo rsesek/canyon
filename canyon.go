@@ -5,6 +5,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -19,9 +20,15 @@ change into multiple branches, by OWNERS file, and then will prepare a changelis
 description.
 */
 
-const kMaxDepth = 1
+var (
+	maxDepth = flag.Int("depth", 0, "The maximum subdirectory depth for which split branches should be created.")
+
+	upstreamBranch = flag.String("upstream", "origin/master", "The upstream branch against which diffs are taken and new branches created.")
+)
 
 func main() {
+	flag.Parse()
+
 	branch := strings.TrimSpace(gitOrDie("symbolic-ref", "--short", "HEAD"))
 
 	fmt.Printf("Split changelist on branch %q into sub-changelists? [y/N] ", branch)
@@ -33,7 +40,7 @@ func main() {
 	}
 
 	log.Print("Gathering changed files")
-	files := strings.Split(gitOrDie("diff", "--name-only", "origin/master"), "\n")
+	files := strings.Split(gitOrDie("diff", "--name-only", *upstreamBranch), "\n")
 
 	log.Print("Splitting changed files into groups for changelists")
 	cs := newChangeSet(branch)
@@ -49,7 +56,7 @@ func main() {
 		splitBranch := cl.branchName(branch)
 		log.Printf("Preparing branch %s", splitBranch)
 
-		_, err := git("checkout", "-b", splitBranch, "origin/master")
+		_, err := git("checkout", "-b", splitBranch, *upstreamBranch)
 		if err != nil {
 			log.Printf("Failed to create new branch %q: %v", splitBranch, err)
 			continue
@@ -58,7 +65,7 @@ func main() {
 		_, err = git("checkout", branch, cl.base)
 		if err != nil {
 			log.Print("Failed to check out subdirectory from root branch")
-			gitOrDie("reset", "--hard", "origin/master")
+			gitOrDie("reset", "--hard", *upstreamBranch)
 			continue
 		}
 
@@ -72,7 +79,7 @@ func main() {
 		_, err = git("commit", "-a", "-m", desc)
 		if err != nil {
 			log.Print("Failed to create subchangelist")
-			gitOrDie("reset", "--hard", "origin/master")
+			gitOrDie("reset", "--hard", *upstreamBranch)
 			continue
 		}
 	}

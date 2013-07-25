@@ -43,7 +43,10 @@ func (cs *changeSet) splitByFile(splitBy string, file string) *changeList {
 
 		splitByPath := path.Join(base, splitBy)
 		f, err := os.Open(splitByPath)
-		if err != nil || strings.Count(base, kPathSep) > kMaxDepth {
+		// Count the number of path separators to determine depth. This should
+		// one less than the number of actual path components.
+		if err != nil || (*maxDepth != 0 && strings.Count(base, kPathSep) > *maxDepth-1) {
+			// Ignore open errors and just assume that the file does not exist.
 			base = path.Dir(base)
 			continue
 		} else {
@@ -72,10 +75,10 @@ func (cs *changeSet) splitByFile(splitBy string, file string) *changeList {
 // common parent directories.
 func (cs *changeSet) splitByDir(file string) *changeList {
 	parts := strings.Split(path.Dir(file), kPathSep)
-	if kMaxDepth > 0 {
+	if *maxDepth > 0 {
 		depth := len(parts)
-		if kMaxDepth < len(parts) {
-			depth = kMaxDepth
+		if *maxDepth < len(parts) {
+			depth = *maxDepth
 		}
 		parts = parts[:depth]
 	}
