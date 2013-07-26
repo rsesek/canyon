@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *splitByType != "dir" || *splitByType != "file" {
+	if *splitByType != "dir" && *splitByType != "file" {
 		fmt.Println("Invalid -split-by type:", *splitByType)
 		flag.Usage()
 		os.Exit(1)
