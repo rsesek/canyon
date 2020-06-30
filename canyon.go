@@ -27,6 +27,8 @@ var (
 	splitByType = flag.String("split-by", "[dir|file]", "The method by which the branch is split.")
 
 	splitByFile = flag.String("split-by-file", "", "If using -split-by=file, this the common file name by which split directories are found.")
+
+	dryRun = flag.Bool("dry-run", false, "Just print the split branch information, rather than performing the split.")
 )
 
 func main() {
@@ -51,12 +53,14 @@ func main() {
 
 	branch := strings.TrimSpace(gitOrDie("symbolic-ref", "--short", "HEAD"))
 
-	fmt.Printf("Split changelist on branch %q into sub-changelists? [y/N] ", branch)
-	buf := make([]byte, 1)
-	os.Stdin.Read(buf)
-	if buf[0] != 'y' {
-		fmt.Println("Exiting")
-		return
+	if !*dryRun {
+		fmt.Printf("Split changelist on branch %q into sub-changelists? [y/N] ", branch)
+		buf := make([]byte, 1)
+		os.Stdin.Read(buf)
+		if buf[0] != 'y' {
+			fmt.Println("Exiting")
+			return
+		}
 	}
 
 	log.Print("Gathering changed files")
@@ -64,6 +68,11 @@ func main() {
 
 	log.Print("Splitting changed files into groups for changelists")
 	cs := prepareChangeSet(branch, files)
+
+	if *dryRun {
+		printChangeSet(cs)
+		return
+	}
 
 	log.Print("Creating branches for splits")
 	createBranches(cs)
@@ -106,6 +115,14 @@ func prepareChangeSet(branch string, files []string) *changeSet {
 		}
 	}
 	return cs
+}
+
+// printChangeSet prints the changeset to stdout.
+func printChangeSet(cs *changeSet) {
+	fmt.Printf("Splitting branch %q into %d changelists:\n\n", cs.branch, len(cs.splits))
+	for branch, cl := range cs.splits {
+		fmt.Printf("    branch %s:\t\tdir=%s\t\t#files=%d\n", branch, cl.base, len(cl.paths))
+	}
 }
 
 // createBranches creates branches as specified by the changeSet.
